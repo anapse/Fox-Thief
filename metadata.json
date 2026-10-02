@@ -1,0 +1,6 @@
+{
+  "name": "Fox Thief - El Zorro Ladrón",
+  "description": "Juego arcade casual de granja donde recoges huevos, llenas la cesta y espantas al zorro ladrón arrojando macetas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
