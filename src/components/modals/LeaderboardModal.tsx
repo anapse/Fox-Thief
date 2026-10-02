@@ -27,61 +27,73 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
         </div>
 
         {/* Subtitle */}
-        <p className="text-[11px] text-amber-200 mb-2 font-medium">
-          Tabla de clasificación oficial de Fox Tiefo
+        <p className="text-[11px] text-amber-200 mb-2 font-medium text-center">
+          Tabla de clasificación oficial de Fox Thief
         </p>
 
-        {/* Scrollable List */}
+        {/* Scrollable List or Empty State */}
         <div className="w-full flex-1 overflow-y-auto pr-1 flex flex-col gap-1.5 my-1 max-h-[58vh]">
-          {ranks.map((p) => {
-            const isTop3 = p.rank <= 3;
-            const rankBadgeColor =
-              p.rank === 1
-                ? 'bg-yellow-400 text-yellow-950 border-yellow-200'
-                : p.rank === 2
-                ? 'bg-slate-300 text-slate-900 border-white'
-                : p.rank === 3
-                ? 'bg-amber-600 text-amber-100 border-amber-400'
-                : 'bg-amber-900/60 text-amber-200 border-amber-700';
+          {ranks.length === 0 ? (
+            <div className="w-full py-8 px-4 flex flex-col items-center justify-center text-center bg-amber-950/40 rounded-2xl border border-amber-800/60 my-auto">
+              <span className="text-4xl mb-2">🌾</span>
+              <span className="font-game text-sm text-yellow-300 font-bold block">
+                ¡TABLA DE POSICIONES VACÍA!
+              </span>
+              <p className="text-xs text-amber-200/90 mt-1 leading-relaxed max-w-[220px]">
+                Aún no hay registros de puntuación. ¡Juega una partida para registrar el primer récord!
+              </p>
+            </div>
+          ) : (
+            ranks.map((p) => {
+              const isTop3 = p.rank <= 3;
+              const rankBadgeColor =
+                p.rank === 1
+                  ? 'bg-yellow-400 text-yellow-950 border-yellow-200'
+                  : p.rank === 2
+                  ? 'bg-slate-300 text-slate-900 border-white'
+                  : p.rank === 3
+                  ? 'bg-amber-600 text-amber-100 border-amber-400'
+                  : 'bg-amber-900/60 text-amber-200 border-amber-700';
 
-            return (
-              <div
-                key={`${p.rank}-${p.name}`}
-                className={`flex items-center justify-between p-2 sm:p-2.5 rounded-2xl border-2 transition-all ${
-                  p.isPlayer
-                    ? 'bg-gradient-to-r from-yellow-200 to-amber-100 border-amber-500 shadow-md ring-2 ring-yellow-400'
-                    : 'bg-amber-100/90 border-amber-800/60 shadow-sm'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {/* Rank Badge */}
-                  <div
-                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-game font-bold text-xs border shadow ${rankBadgeColor}`}
-                  >
-                    {isTop3 ? (p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : '🥉') : `#${p.rank}`}
+              return (
+                <div
+                  key={`${p.rank}-${p.name}`}
+                  className={`flex items-center justify-between p-2 sm:p-2.5 rounded-2xl border-2 transition-all ${
+                    p.isPlayer
+                      ? 'bg-gradient-to-r from-yellow-200 to-amber-100 border-amber-500 shadow-md ring-2 ring-yellow-400'
+                      : 'bg-amber-100/90 border-amber-800/60 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {/* Rank Badge */}
+                    <div
+                      className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-game font-bold text-xs border shadow ${rankBadgeColor}`}
+                    >
+                      {isTop3 ? (p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : '🥉') : `#${p.rank}`}
+                    </div>
+
+                    {/* Avatar */}
+                    <span className="text-lg">{p.avatar}</span>
+
+                    {/* Name */}
+                    <span
+                      className={`font-game text-xs sm:text-sm tracking-wide ${
+                        p.isPlayer ? 'text-amber-950 font-extrabold' : 'text-stone-800'
+                      }`}
+                    >
+                      {p.name}
+                    </span>
                   </div>
 
-                  {/* Avatar */}
-                  <span className="text-lg">{p.avatar}</span>
-
-                  {/* Name */}
-                  <span
-                    className={`font-game text-xs sm:text-sm tracking-wide ${
-                      p.isPlayer ? 'text-amber-950 font-extrabold' : 'text-stone-800'
-                    }`}
-                  >
-                    {p.name}
-                  </span>
+                  {/* Score */}
+                  <div className="flex items-center gap-1 font-game text-xs sm:text-sm text-amber-950 font-bold">
+                    <span>🪙</span>
+                    <span>{p.score.toLocaleString()}</span>
+                  </div>
                 </div>
-
-                {/* Score */}
-                <div className="flex items-center gap-1 font-game text-xs sm:text-sm text-amber-950">
-                  <span>🪙</span>
-                  <span>{p.score.toLocaleString()}</span>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
         {/* Close Button */}

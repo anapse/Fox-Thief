@@ -7,7 +7,7 @@ import {
 
 const LEADERBOARD_STORAGE_KEY = 'fox_thief_top50_ranking';
 
-const DEFAULT_TOP50_NAMES = [
+export const KNOWN_FAKE_NAMES = new Set([
   'GranjeroPepe', 'CluckMaster', 'FoxHunter99', 'HuevoSupremo', 'DonaGallina',
   'ElZorroPillo', 'RancheroChic', 'SuperClucker', 'GranjaFeliz', 'Trotamundos',
   'PicoDeOro', 'HueveriaCentral', 'ZorroAsustado', 'MacetaVeloz', 'ReinaPollo',
@@ -18,37 +18,33 @@ const DEFAULT_TOP50_NAMES = [
   'ElMaizal', 'PicoFino', 'HuevosFrescos', 'CrestaRoja', 'GranjaSolar',
   'ZorroPasmado', 'CampoVerde', 'Espantapajaros', 'GallineroVip', 'PichonCrack',
   'AvispaGranjera', 'SolDeMayo', 'VientoNorte', 'HuevoCentella', 'GranjeroPro'
-];
-
-function generateDefaultLeaderboard(): PlayerRank[] {
-  let score = 4850;
-  return DEFAULT_TOP50_NAMES.map((name, idx) => {
-    score = Math.max(30, score - (idx < 5 ? 300 : idx < 20 ? 120 : 60));
-    const avatars = ['🐔', '🦊', '🥚', '🪴', '🌾', '🧺', '🌽'];
-    return {
-      rank: idx + 1,
-      name,
-      score,
-      avatar: avatars[idx % avatars.length],
-    };
-  });
-}
+]);
 
 export function getLocalLeaderboard(): PlayerRank[] {
   try {
     const raw = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
     if (!raw) {
-      const defaults = generateDefaultLeaderboard();
-      localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(defaults));
-      return defaults;
+      return [];
     }
     const parsed: PlayerRank[] = JSON.parse(raw);
-    return parsed.sort((a, b) => b.score - a.score).slice(0, 50).map((item, index) => ({
+    if (!Array.isArray(parsed)) return [];
+    
+    // Purge only the fake test names, preserving all real players
+    const onlyRealPlayers = parsed.filter(
+      (item) => item && typeof item.score === 'number' && item.name && !KNOWN_FAKE_NAMES.has(item.name)
+    );
+
+    // Save back the cleaned real list
+    if (onlyRealPlayers.length !== parsed.length) {
+      localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(onlyRealPlayers));
+    }
+
+    return onlyRealPlayers.sort((a, b) => b.score - a.score).slice(0, 50).map((item, index) => ({
       ...item,
       rank: index + 1,
     }));
   } catch {
-    return generateDefaultLeaderboard();
+    return [];
   }
 }
 
@@ -56,7 +52,9 @@ export async function fetchTop50Ranking(): Promise<PlayerRank[]> {
   if (isFirebaseConfigured) {
     const remote = await fetchFirebaseTop50();
     if (remote && remote.length > 0) {
-      const mapped: PlayerRank[] = remote.map((entry, idx) => ({
+      // Filter out any fake test names from remote query
+      const onlyRealRemote = remote.filter((entry) => !KNOWN_FAKE_NAMES.has(entry.name));
+      const mapped: PlayerRank[] = onlyRealRemote.map((entry, idx) => ({
         rank: idx + 1,
         name: entry.name,
         score: entry.score,
@@ -98,6 +96,7 @@ export async function savePlayerScore(
   };
 
   const updatedList = [...list, newEntry]
+    .filter((item) => !KNOWN_FAKE_NAMES.has(item.name))
     .sort((a, b) => b.score - a.score)
     .slice(0, 50)
     .map((item, idx) => ({
@@ -110,7 +109,7 @@ export async function savePlayerScore(
   const playerRankIndex = updatedList.findIndex(
     (item) => item.name === cleanName && item.score === score
   );
-  const finalRank = playerRankIndex !== -1 ? playerRankIndex + 1 : 50;
+  const finalRank = playerRankIndex !== -1 ? playerRankIndex + 1 : 1;
 
   // 2. Sync to Firebase if configured and check record
   if (isFirebaseConfigured) {
@@ -126,4 +125,8 @@ export async function savePlayerScore(
   }
 
   return { success: true, rank: finalRank };
+}
+
+export function clearLocalLeaderboard(): void {
+  localStorage.removeItem(LEADERBOARD_STORAGE_KEY);
 }

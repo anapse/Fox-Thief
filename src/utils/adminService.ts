@@ -1,6 +1,7 @@
 /**
  * Administrative Service for Fox Thief.
- * Handles secure authentication, session management, and querying Firestore or local cache.
+ * Handles secure authentication, session management, and querying Firestore or local storage.
+ * Only uses real player data — strictly purges and excludes fake/mock test players.
  */
 
 import {
@@ -21,9 +22,9 @@ import {
   getDocs,
   doc,
   getDoc,
-  where,
 } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { KNOWN_FAKE_NAMES } from './leaderboardService';
 
 const ADMIN_SESSION_KEY = 'fox_thief_admin_session_token';
 const ADMIN_USERNAME = 'anapse';
@@ -117,34 +118,44 @@ export async function adminLogout(): Promise<void> {
 }
 
 export async function fetchAdminSummaryStats(): Promise<GameSummaryStats> {
-  const fallbackStats: GameSummaryStats = {
-    totalVisits: 1420,
-    gamesStarted: 890,
-    gamesCompleted: 640,
-    uniquePlayers: 284,
-    totalCoinsAccumulated: 184500,
-    highestScore: 4850,
-    averageScore: 288,
-    currentRecordHolder: 'GranjeroPepe',
-    currentRecordDate: new Date().toISOString().split('T')[0],
-    currentRecordTime: '18:42',
+  const baseStats: GameSummaryStats = {
+    totalVisits: 0,
+    gamesStarted: 0,
+    gamesCompleted: 0,
+    uniquePlayers: 0,
+    totalCoinsAccumulated: 0,
+    highestScore: 0,
+    averageScore: 0,
+    currentRecordHolder: 'Sin registros',
+    currentRecordDate: '-',
+    currentRecordTime: '-',
   };
 
-  if (!db || !isFirebaseConfigured) {
-    // Merge with any local records
-    try {
-      const localLeaderboard = localStorage.getItem('fox_thief_top50_ranking');
-      if (localLeaderboard) {
-        const parsed = JSON.parse(localLeaderboard);
-        if (parsed.length > 0) {
-          fallbackStats.highestScore = parsed[0].score;
-          fallbackStats.currentRecordHolder = parsed[0].name;
+  // If local records exist, calculate real local baseline
+  try {
+    const localLeaderboard = localStorage.getItem('fox_thief_top50_ranking');
+    if (localLeaderboard) {
+      const parsed: Array<{ name: string; score: number }> = JSON.parse(localLeaderboard);
+      if (Array.isArray(parsed)) {
+        const realParsed = parsed.filter((p) => p && !KNOWN_FAKE_NAMES.has(p.name));
+        if (realParsed.length > 0) {
+          baseStats.gamesCompleted = realParsed.length;
+          baseStats.uniquePlayers = new Set(realParsed.map((p) => p.name)).size;
+          baseStats.highestScore = realParsed[0]?.score || 0;
+          baseStats.currentRecordHolder = realParsed[0]?.name || 'Sin registros';
+          baseStats.totalCoinsAccumulated = realParsed.reduce((acc, p) => acc + (p.score || 0), 0);
+          baseStats.averageScore = Math.round(baseStats.totalCoinsAccumulated / realParsed.length);
+          baseStats.currentRecordDate = new Date().toISOString().split('T')[0];
+          baseStats.currentRecordTime = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
         }
       }
-    } catch {
-      // ignore
     }
-    return fallbackStats;
+  } catch {
+    // ignore
+  }
+
+  if (!db || !isFirebaseConfigured) {
+    return baseStats;
   }
 
   try {
@@ -152,25 +163,26 @@ export async function fetchAdminSummaryStats(): Promise<GameSummaryStats> {
     const snap = await getDoc(metaRef);
     if (snap.exists()) {
       const data = snap.data();
+      const currentHolder = data.currentRecordHolder || baseStats.currentRecordHolder;
       return {
-        totalVisits: data.totalVisits || fallbackStats.totalVisits,
-        gamesStarted: data.gamesStarted || fallbackStats.gamesStarted,
-        gamesCompleted: data.gamesCompleted || fallbackStats.gamesCompleted,
-        uniquePlayers: data.uniquePlayers || fallbackStats.uniquePlayers,
-        totalCoinsAccumulated: data.totalCoinsAccumulated || fallbackStats.totalCoinsAccumulated,
-        highestScore: data.highestScore || fallbackStats.highestScore,
+        totalVisits: data.totalVisits || baseStats.totalVisits,
+        gamesStarted: data.gamesStarted || baseStats.gamesStarted,
+        gamesCompleted: data.gamesCompleted || baseStats.gamesCompleted,
+        uniquePlayers: data.uniquePlayers || baseStats.uniquePlayers,
+        totalCoinsAccumulated: data.totalCoinsAccumulated || baseStats.totalCoinsAccumulated,
+        highestScore: KNOWN_FAKE_NAMES.has(currentHolder) ? 0 : data.highestScore || baseStats.highestScore,
         averageScore: data.gamesCompleted
           ? Math.round((data.totalCoinsAccumulated || 0) / data.gamesCompleted)
-          : fallbackStats.averageScore,
-        currentRecordHolder: data.currentRecordHolder || fallbackStats.currentRecordHolder,
-        currentRecordDate: data.currentRecordDate || fallbackStats.currentRecordDate,
-        currentRecordTime: data.currentRecordTime || fallbackStats.currentRecordTime,
+          : baseStats.averageScore,
+        currentRecordHolder: KNOWN_FAKE_NAMES.has(currentHolder) ? 'Sin registros' : currentHolder,
+        currentRecordDate: data.currentRecordDate || baseStats.currentRecordDate,
+        currentRecordTime: data.currentRecordTime || baseStats.currentRecordTime,
       };
     }
-    return fallbackStats;
+    return baseStats;
   } catch (err) {
     console.warn('Error loading admin summary:', err);
-    return fallbackStats;
+    return baseStats;
   }
 }
 
@@ -186,35 +198,43 @@ export async function fetchAdminRanking(): Promise<LeaderboardEntry[]> {
       const list: LeaderboardEntry[] = [];
       snap.forEach((docSnap) => {
         const data = docSnap.data() as LeaderboardEntry;
-        list.push({ ...data, id: docSnap.id });
+        if (!KNOWN_FAKE_NAMES.has(data.name)) {
+          list.push({ ...data, id: docSnap.id });
+        }
       });
-      if (list.length > 0) return list;
+      return list;
     } catch (err) {
       console.warn('Error fetching admin ranking:', err);
     }
   }
 
-  // Fallback ranking entries
-  const names = [
-    'GranjeroPepe', 'CluckMaster', 'FoxHunter99', 'HuevoSupremo', 'DonaGallina',
-    'ElZorroPillo', 'RancheroChic', 'SuperClucker', 'GranjaFeliz', 'Trotamundos',
-    'PicoDeOro', 'HueveriaCentral', 'ZorroAsustado', 'MacetaVeloz', 'ReinaPollo'
-  ];
-  let baseScore = 4850;
-  return names.map((name, i) => {
-    baseScore = Math.max(120, baseScore - (i === 0 ? 350 : 180 + (i % 3) * 40));
-    return {
-      id: `rank_${i + 1}`,
-      name,
-      score: baseScore,
-      gameId: 'FOX_THIEF',
-      date: new Date(Date.now() - i * 3600000 * 4).toISOString().split('T')[0],
-      time: new Date(Date.now() - i * 3600000 * 4).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-      basketsSold: Math.floor(baseScore / 20),
-      foxesScared: Math.floor(baseScore / 60),
-      eggsDelivered: Math.floor(baseScore / 2),
-    };
-  });
+  // Fallback to real local storage records only
+  try {
+    const local = localStorage.getItem('fox_thief_top50_ranking');
+    if (local) {
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed)) {
+        const real = parsed.filter((item) => !KNOWN_FAKE_NAMES.has(item.name));
+        if (real.length > 0) {
+          return real.map((item, idx) => ({
+            id: `local_${idx + 1}`,
+            name: item.name,
+            score: item.score,
+            gameId: 'FOX_THIEF',
+            date: new Date().toISOString().split('T')[0],
+            time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            basketsSold: Math.floor(item.score / 20),
+            foxesScared: Math.floor(item.score / 60),
+            eggsDelivered: Math.floor(item.score / 2),
+          }));
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return [];
 }
 
 export async function fetchRecordsHistory(): Promise<RecordHistoryEntry[]> {
@@ -229,58 +249,17 @@ export async function fetchRecordsHistory(): Promise<RecordHistoryEntry[]> {
       const list: RecordHistoryEntry[] = [];
       snap.forEach((docSnap) => {
         const data = docSnap.data() as RecordHistoryEntry;
-        list.push({ ...data, id: docSnap.id });
+        if (!KNOWN_FAKE_NAMES.has(data.playerName)) {
+          list.push({ ...data, id: docSnap.id });
+        }
       });
-      if (list.length > 0) return list;
+      return list;
     } catch (err) {
       console.warn('Error fetching records history:', err);
     }
   }
 
-  // Realistic seed history
-  const today = new Date().toISOString().split('T')[0];
-  return [
-    {
-      id: 'rec_1',
-      playerName: 'GranjeroPepe',
-      previousRecord: 4200,
-      newRecord: 4850,
-      difference: 650,
-      date: today,
-      time: '18:42',
-      gameId: 'FOX_THIEF',
-    },
-    {
-      id: 'rec_2',
-      playerName: 'CluckMaster',
-      previousRecord: 3850,
-      newRecord: 4200,
-      difference: 350,
-      date: today,
-      time: '14:15',
-      gameId: 'FOX_THIEF',
-    },
-    {
-      id: 'rec_3',
-      playerName: 'FoxHunter99',
-      previousRecord: 3100,
-      newRecord: 3850,
-      difference: 750,
-      date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-      time: '21:05',
-      gameId: 'FOX_THIEF',
-    },
-    {
-      id: 'rec_4',
-      playerName: 'HuevoSupremo',
-      previousRecord: 2500,
-      newRecord: 3100,
-      difference: 600,
-      date: new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0],
-      time: '11:30',
-      gameId: 'FOX_THIEF',
-    },
-  ];
+  return [];
 }
 
 export async function fetchRecentActivity(): Promise<SessionLogEntry[]> {
@@ -295,65 +274,15 @@ export async function fetchRecentActivity(): Promise<SessionLogEntry[]> {
       const list: SessionLogEntry[] = [];
       snap.forEach((docSnap) => {
         const data = docSnap.data() as SessionLogEntry;
-        list.push({ ...data, id: docSnap.id });
+        if (!data.playerName || !KNOWN_FAKE_NAMES.has(data.playerName)) {
+          list.push({ ...data, id: docSnap.id });
+        }
       });
-      if (list.length > 0) return list;
+      return list;
     } catch (err) {
       console.warn('Error fetching recent activity:', err);
     }
   }
 
-  // Realistic recent logs
-  const now = new Date();
-  const formatTime = (offsetMinutes: number) => {
-    const d = new Date(now.getTime() - offsetMinutes * 60000);
-    return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  };
-  const today = now.toISOString().split('T')[0];
-
-  return [
-    {
-      id: 'act_1',
-      type: 'record_broken',
-      playerName: 'GranjeroPepe',
-      score: 4850,
-      basketsSold: 24,
-      foxesScared: 18,
-      date: today,
-      time: formatTime(5),
-    },
-    {
-      id: 'act_2',
-      type: 'game_complete',
-      playerName: 'CluckMaster',
-      score: 2150,
-      basketsSold: 12,
-      foxesScared: 9,
-      date: today,
-      time: formatTime(18),
-    },
-    {
-      id: 'act_3',
-      type: 'game_complete',
-      playerName: 'DonaGallina',
-      score: 1420,
-      basketsSold: 8,
-      foxesScared: 5,
-      date: today,
-      time: formatTime(32),
-    },
-    {
-      id: 'act_4',
-      type: 'visit',
-      date: today,
-      time: formatTime(40),
-      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
-    },
-    {
-      id: 'act_5',
-      type: 'game_start',
-      date: today,
-      time: formatTime(42),
-    },
-  ];
+  return [];
 }

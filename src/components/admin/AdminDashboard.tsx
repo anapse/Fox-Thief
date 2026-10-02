@@ -207,10 +207,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Récord Actual de Fox Thief
                       </span>
                       <h2 className="font-game text-2xl sm:text-3xl text-yellow-300 font-extrabold drop-shadow">
-                        {stats?.highestScore.toLocaleString()} Pts
+                        {stats?.highestScore ? `${stats.highestScore.toLocaleString()} Pts` : '0 Pts'}
                       </h2>
                       <p className="text-xs text-stone-300 mt-0.5">
-                        Conseguido por: <strong className="text-white">{stats?.currentRecordHolder}</strong> ({stats?.currentRecordDate} a las {stats?.currentRecordTime})
+                        Conseguido por:{' '}
+                        <strong className="text-white">
+                          {stats?.currentRecordHolder || 'Sin registros'}
+                        </strong>{' '}
+                        {stats?.currentRecordDate && stats.currentRecordDate !== '-' && (
+                          <span>({stats.currentRecordDate} a las {stats.currentRecordTime})</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -303,45 +309,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <span className="text-xs text-stone-400">Últimos eventos registrados</span>
                   </div>
 
-                  <div className="flex flex-col gap-2">
-                    {activity.slice(0, 5).map((act) => (
-                      <div
-                        key={act.id || Math.random()}
-                        className="flex items-center justify-between p-3 rounded-xl bg-stone-950/70 border border-stone-800 text-xs text-stone-300"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-base">
-                            {act.type === 'record_broken' ? '👑' : act.type === 'game_complete' ? '🏁' : '👤'}
-                          </span>
-                          <div>
-                            {act.type === 'record_broken' && (
-                              <span>
-                                <strong className="text-yellow-300">{act.playerName}</strong> rompió el récord con <strong className="text-white">{act.score} pts</strong>
-                              </span>
-                            )}
-                            {act.type === 'game_complete' && (
-                              <span>
-                                <strong className="text-amber-200">{act.playerName}</strong> terminó una partida con <strong className="text-white">{act.score} pts</strong> ({act.basketsSold || 0} cestas)
-                              </span>
-                            )}
-                            {act.type === 'visit' && (
-                              <span className="text-stone-400">
-                                Nueva visita recibida desde {act.userAgent?.includes('iPhone') ? 'Móvil iOS' : act.userAgent?.includes('Android') ? 'Móvil Android' : 'Navegador Web'}
-                              </span>
-                            )}
-                            {act.type === 'game_start' && (
-                              <span className="text-sky-300">
-                                Partida iniciada en el corral
-                              </span>
-                            )}
+                  {activity.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-stone-500">
+                      <span>No hay eventos recientes registrados aún.</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {activity.slice(0, 5).map((act) => (
+                        <div
+                          key={act.id || Math.random()}
+                          className="flex items-center justify-between p-3 rounded-xl bg-stone-950/70 border border-stone-800 text-xs text-stone-300"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-base">
+                              {act.type === 'record_broken' ? '👑' : act.type === 'game_complete' ? '🏁' : '👤'}
+                            </span>
+                            <div>
+                              {act.type === 'record_broken' && (
+                                <span>
+                                  <strong className="text-yellow-300">{act.playerName}</strong> rompió el récord con <strong className="text-white">{act.score} pts</strong>
+                                </span>
+                              )}
+                              {act.type === 'game_complete' && (
+                                <span>
+                                  <strong className="text-amber-200">{act.playerName}</strong> terminó una partida con <strong className="text-white">{act.score} pts</strong> ({act.basketsSold || 0} cestas)
+                                </span>
+                              )}
+                              {act.type === 'visit' && (
+                                <span className="text-stone-400">
+                                  Nueva visita recibida desde {act.userAgent?.includes('iPhone') ? 'Móvil iOS' : act.userAgent?.includes('Android') ? 'Móvil Android' : 'Navegador Web'}
+                                </span>
+                              )}
+                              {act.type === 'game_start' && (
+                                <span className="text-sky-300">
+                                  Partida iniciada en el corral
+                                </span>
+                              )}
+                            </div>
                           </div>
+                          <span className="text-[11px] text-stone-500 shrink-0 font-mono">
+                            {act.time} ({act.date})
+                          </span>
                         </div>
-                        <span className="text-[11px] text-stone-500 shrink-0 font-mono">
-                          {act.time} ({act.date})
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -396,49 +408,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {/* Table */}
                 <div className="bg-stone-900 border border-stone-800 rounded-3xl overflow-hidden shadow-xl">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-stone-300">
-                      <thead className="bg-stone-950/80 text-amber-300 uppercase font-game text-[11px] border-b border-stone-800">
-                        <tr>
-                          <th className="px-4 py-3">Pos</th>
-                          <th className="px-4 py-3">Jugador / ID</th>
-                          <th className="px-4 py-3 text-right">Puntuación</th>
-                          <th className="px-4 py-3 text-center">Cestas</th>
-                          <th className="px-4 py-3 text-center">Zorros</th>
-                          <th className="px-4 py-3 text-center">Huevos</th>
-                          <th className="px-4 py-3 text-right">Fecha y Hora</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-stone-800">
-                        {filteredRanking.map((item, idx) => (
-                          <tr key={item.id || idx} className="hover:bg-stone-800/40 transition-colors">
-                            <td className="px-4 py-3 font-bold font-game text-sm text-yellow-400">
-                              {idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="font-semibold text-white block">{item.name}</span>
-                              <span className="text-[10px] text-stone-500 font-mono">{item.id || 'local_entry'}</span>
-                            </td>
-                            <td className="px-4 py-3 text-right font-game text-sm text-yellow-300 font-extrabold">
-                              🪙 {item.score.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3 text-center text-stone-300">
-                              🧺 {item.basketsSold ?? Math.floor(item.score / 20)}
-                            </td>
-                            <td className="px-4 py-3 text-center text-stone-300">
-                              🦊 {item.foxesScared ?? Math.floor(item.score / 60)}
-                            </td>
-                            <td className="px-4 py-3 text-center text-stone-300">
-                              🥚 {item.eggsDelivered ?? Math.floor(item.score / 2)}
-                            </td>
-                            <td className="px-4 py-3 text-right text-stone-400 font-mono text-[11px]">
-                              {item.date} {item.time}
-                            </td>
+                  {filteredRanking.length === 0 ? (
+                    <div className="py-12 px-4 flex flex-col items-center justify-center text-center text-stone-400">
+                      <span className="text-4xl mb-2">🌾</span>
+                      <span className="font-game text-base text-yellow-300 font-bold">
+                        No hay registros de jugadores en el ranking
+                      </span>
+                      <p className="text-xs text-stone-500 mt-1 max-w-sm">
+                        Las puntuaciones que consigan los jugadores en partidas reales aparecerán aquí automáticamente.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-stone-300">
+                        <thead className="bg-stone-950/80 text-amber-300 uppercase font-game text-[11px] border-b border-stone-800">
+                          <tr>
+                            <th className="px-4 py-3">Pos</th>
+                            <th className="px-4 py-3">Jugador / ID</th>
+                            <th className="px-4 py-3 text-right">Puntuación</th>
+                            <th className="px-4 py-3 text-center">Cestas</th>
+                            <th className="px-4 py-3 text-center">Zorros</th>
+                            <th className="px-4 py-3 text-center">Huevos</th>
+                            <th className="px-4 py-3 text-right">Fecha y Hora</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-stone-800">
+                          {filteredRanking.map((item, idx) => (
+                            <tr key={item.id || idx} className="hover:bg-stone-800/40 transition-colors">
+                              <td className="px-4 py-3 font-bold font-game text-sm text-yellow-400">
+                                {idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="font-semibold text-white block">{item.name}</span>
+                                <span className="text-[10px] text-stone-500 font-mono">{item.id || 'local_entry'}</span>
+                              </td>
+                              <td className="px-4 py-3 text-right font-game text-sm text-yellow-300 font-extrabold">
+                                🪙 {item.score.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-center text-stone-300">
+                                🧺 {item.basketsSold ?? Math.floor(item.score / 20)}
+                              </td>
+                              <td className="px-4 py-3 text-center text-stone-300">
+                                🦊 {item.foxesScared ?? Math.floor(item.score / 60)}
+                              </td>
+                              <td className="px-4 py-3 text-center text-stone-300">
+                                🥚 {item.eggsDelivered ?? Math.floor(item.score / 2)}
+                              </td>
+                              <td className="px-4 py-3 text-right text-stone-400 font-mono text-[11px]">
+                                {item.date} {item.time}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -456,44 +480,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-3">
-                  {records.map((rec, i) => (
-                    <div
-                      key={rec.id || i}
-                      className="bg-stone-900/90 border border-stone-800 hover:border-amber-700/60 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
-                    >
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-950 border border-yellow-500/40 flex items-center justify-center text-2xl shrink-0">
-                          {i === 0 ? '🏆' : '⭐'}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-game text-base text-yellow-300 font-extrabold">
-                              {rec.playerName}
-                            </span>
-                            {i === 0 && (
-                              <span className="px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-400 text-[10px] font-bold">
-                                RÉCORD VIGENTE
-                              </span>
-                            )}
+                {records.length === 0 ? (
+                  <div className="bg-stone-900 border border-stone-800 rounded-3xl p-10 flex flex-col items-center justify-center text-center text-stone-400">
+                    <span className="text-4xl mb-2">🏆</span>
+                    <span className="font-game text-base text-yellow-300 font-bold">
+                      Aún no hay récords históricos registrados
+                    </span>
+                    <p className="text-xs text-stone-500 mt-1 max-w-sm">
+                      Cada vez que un jugador supere la puntuación máxima histórica, se guardará aquí el registro inmutable.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {records.map((rec, i) => (
+                      <div
+                        key={rec.id || i}
+                        className="bg-stone-900/90 border border-stone-800 hover:border-amber-700/60 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
+                      >
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-12 h-12 rounded-2xl bg-amber-950 border border-yellow-500/40 flex items-center justify-center text-2xl shrink-0">
+                            {i === 0 ? '🏆' : '⭐'}
                           </div>
-                          <p className="text-xs text-stone-300 mt-0.5">
-                            Récord Anterior: <span className="line-through text-stone-400">{rec.previousRecord.toLocaleString()} pts</span> ➔ Nuevo Récord: <strong className="text-emerald-400">{rec.newRecord.toLocaleString()} pts</strong>
-                          </p>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-game text-base text-yellow-300 font-extrabold">
+                                {rec.playerName}
+                              </span>
+                              {i === 0 && (
+                                <span className="px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-400 text-[10px] font-bold">
+                                  RÉCORD VIGENTE
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-stone-300 mt-0.5">
+                              Récord Anterior: <span className="line-through text-stone-400">{rec.previousRecord.toLocaleString()} pts</span> ➔ Nuevo Récord: <strong className="text-emerald-400">{rec.newRecord.toLocaleString()} pts</strong>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto text-xs text-stone-400 shrink-0">
+                          <span className="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 font-bold border border-emerald-800">
+                            +{rec.difference.toLocaleString()} Pts de Aumento
+                          </span>
+                          <span className="mt-1 font-mono text-[11px] text-stone-500">
+                            📅 {rec.date} a las {rec.time}
+                          </span>
                         </div>
                       </div>
-
-                      <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto text-xs text-stone-400 shrink-0">
-                        <span className="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 font-bold border border-emerald-800">
-                          +{rec.difference.toLocaleString()} Pts de Aumento
-                        </span>
-                        <span className="mt-1 font-mono text-[11px] text-stone-500">
-                          📅 {rec.date} a las {rec.time}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -508,13 +544,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 shadow">
                     <span className="text-xs text-stone-400">Visitas Móviles</span>
                     <h3 className="font-game text-3xl text-sky-300 mt-1">
-                      {Math.round((stats?.totalVisits || 100) * 0.72).toLocaleString()} (72%)
+                      {Math.round((stats?.totalVisits || 0) * 0.72).toLocaleString()}
                     </h3>
                   </div>
                   <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 shadow">
                     <span className="text-xs text-stone-400">Visitas Escritorio</span>
                     <h3 className="font-game text-3xl text-purple-300 mt-1">
-                      {Math.round((stats?.totalVisits || 100) * 0.28).toLocaleString()} (28%)
+                      {Math.round((stats?.totalVisits || 0) * 0.28).toLocaleString()}
                     </h3>
                   </div>
                 </div>
@@ -523,25 +559,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <h3 className="font-game text-base text-yellow-300 font-bold mb-3">
                     REGISTRO DE SESIONES DE ENTRADA
                   </h3>
-                  <div className="flex flex-col gap-2">
-                    {activity.filter((a) => a.type === 'visit').concat(activity.slice(0, 10)).map((log, i) => (
-                      <div
-                        key={log.id || i}
-                        className="flex items-center justify-between p-3 rounded-xl bg-stone-950/80 border border-stone-800 text-xs text-stone-300"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">🌐</span>
-                          <div>
-                            <span className="font-medium text-white block">Acceso Web Público</span>
-                            <span className="text-[10px] text-stone-500">{log.userAgent || 'Mozilla/5.0 Web Client'}</span>
+                  {activity.filter((a) => a.type === 'visit').length === 0 ? (
+                    <div className="py-6 text-center text-xs text-stone-500">
+                      No hay registros de visitas adicionales aún.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {activity.filter((a) => a.type === 'visit').map((log, i) => (
+                        <div
+                          key={log.id || i}
+                          className="flex items-center justify-between p-3 rounded-xl bg-stone-950/80 border border-stone-800 text-xs text-stone-300"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">🌐</span>
+                            <div>
+                              <span className="font-medium text-white block">Acceso Web Público</span>
+                              <span className="text-[10px] text-stone-500">{log.userAgent || 'Mozilla/5.0 Web Client'}</span>
+                            </div>
                           </div>
+                          <span className="font-mono text-[11px] text-stone-400">
+                            {log.date} {log.time}
+                          </span>
                         </div>
-                        <span className="font-mono text-[11px] text-stone-400">
-                          {log.date} {log.time}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -556,37 +598,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </h3>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-stone-300">
-                      <thead className="bg-stone-950/80 text-amber-300 uppercase font-game text-[11px] border-b border-stone-800">
-                        <tr>
-                          <th className="px-4 py-3">Granjero</th>
-                          <th className="px-4 py-3 text-center">Partidas Registradas</th>
-                          <th className="px-4 py-3 text-right">Mejor Puntuación</th>
-                          <th className="px-4 py-3 text-right">Última Actividad</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-stone-800">
-                        {playersList.map((p, i) => (
-                          <tr key={p.name} className="hover:bg-stone-800/40 transition-colors">
-                            <td className="px-4 py-3 font-semibold text-white flex items-center gap-2">
-                              <span>{i === 0 ? '👑' : i < 3 ? '⭐' : '🧑'}</span>
-                              <span>{p.name}</span>
-                            </td>
-                            <td className="px-4 py-3 text-center text-stone-300">
-                              {p.games} partida(s)
-                            </td>
-                            <td className="px-4 py-3 text-right font-game text-sm text-yellow-300 font-extrabold">
-                              🪙 {p.maxScore.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3 text-right text-stone-400 font-mono text-[11px]">
-                              {p.lastDate}
-                            </td>
+                  {playersList.length === 0 ? (
+                    <div className="py-12 px-4 flex flex-col items-center justify-center text-center text-stone-400">
+                      <span className="text-4xl mb-2">🧑</span>
+                      <span className="font-game text-base text-yellow-300 font-bold">
+                        No hay jugadores registrados todavía
+                      </span>
+                      <p className="text-xs text-stone-500 mt-1 max-w-sm">
+                        Los jugadores aparecerán consolidados aquí una vez que completen su primera partida.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-stone-300">
+                        <thead className="bg-stone-950/80 text-amber-300 uppercase font-game text-[11px] border-b border-stone-800">
+                          <tr>
+                            <th className="px-4 py-3">Granjero</th>
+                            <th className="px-4 py-3 text-center">Partidas Registradas</th>
+                            <th className="px-4 py-3 text-right">Mejor Puntuación</th>
+                            <th className="px-4 py-3 text-right">Última Actividad</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-stone-800">
+                          {playersList.map((p, i) => (
+                            <tr key={p.name} className="hover:bg-stone-800/40 transition-colors">
+                              <td className="px-4 py-3 font-semibold text-white flex items-center gap-2">
+                                <span>{i === 0 ? '👑' : i < 3 ? '⭐' : '🧑'}</span>
+                                <span>{p.name}</span>
+                              </td>
+                              <td className="px-4 py-3 text-center text-stone-300">
+                                {p.games} partida(s)
+                              </td>
+                              <td className="px-4 py-3 text-right font-game text-sm text-yellow-300 font-extrabold">
+                                🪙 {p.maxScore.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-right text-stone-400 font-mono text-[11px]">
+                                {p.lastDate}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -596,65 +650,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex flex-col gap-6 animate-in fade-in duration-200">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 shadow">
-                    <span className="text-xs text-stone-400">Eficiencia de Recolección</span>
-                    <h3 className="font-game text-2xl text-emerald-300 mt-1">94.2%</h3>
-                    <p className="text-[10px] text-stone-400 mt-1">Huevos llevados a la cesta con éxito</p>
+                    <span className="text-xs text-stone-400">Partidas Registradas</span>
+                    <h3 className="font-game text-2xl text-emerald-300 mt-1">{stats?.gamesCompleted || 0}</h3>
+                    <p className="text-[10px] text-stone-400 mt-1">Partidas completadas</p>
                   </div>
                   <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 shadow">
-                    <span className="text-xs text-stone-400">Tasa de Espantado del Zorro</span>
-                    <h3 className="font-game text-2xl text-yellow-400 mt-1">78.6%</h3>
-                    <p className="text-[10px] text-stone-400 mt-1">Macetas acertadas vs robos totales</p>
+                    <span className="text-xs text-stone-400">Total Monedas Generadas</span>
+                    <h3 className="font-game text-2xl text-yellow-400 mt-1">
+                      {stats?.totalCoinsAccumulated ? stats.totalCoinsAccumulated.toLocaleString() : 0}
+                    </h3>
+                    <p className="text-[10px] text-stone-400 mt-1">Puntos acumulados</p>
                   </div>
                   <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 shadow">
-                    <span className="text-xs text-stone-400">Tiempo Promedio de Partida</span>
-                    <h3 className="font-game text-2xl text-sky-300 mt-1">3m 45s</h3>
-                    <p className="text-[10px] text-stone-400 mt-1">Duración media hasta Game Over</p>
-                  </div>
-                </div>
-
-                {/* Timeline Visual Chart Simulator */}
-                <div className="bg-stone-900 border border-stone-800 rounded-3xl p-5 shadow-xl">
-                  <h3 className="font-game text-base text-yellow-300 font-bold mb-4">
-                    ESTADÍSTICAS DIARIAS (ÚLTIMOS 7 DÍAS)
-                  </h3>
-
-                  <div className="grid grid-cols-7 gap-2 items-end h-40 pt-6 px-2">
-                    {[
-                      { day: 'Lun', visits: 120, games: 85 },
-                      { day: 'Mar', visits: 145, games: 102 },
-                      { day: 'Mié', visits: 190, games: 130 },
-                      { day: 'Jue', visits: 165, games: 118 },
-                      { day: 'Vie', visits: 240, games: 175 },
-                      { day: 'Sáb', visits: 310, games: 240 },
-                      { day: 'Dom', visits: 280, games: 210 },
-                    ].map((d) => (
-                      <div key={d.day} className="flex flex-col items-center gap-1 h-full justify-end">
-                        <div className="w-full flex items-end justify-center gap-1 h-28">
-                          <div
-                            className="w-3 bg-amber-500 rounded-t-sm"
-                            style={{ height: `${(d.visits / 320) * 100}%` }}
-                            title={`Visitas: ${d.visits}`}
-                          />
-                          <div
-                            className="w-3 bg-sky-400 rounded-t-sm"
-                            style={{ height: `${(d.games / 320) * 100}%` }}
-                            title={`Partidas: ${d.games}`}
-                          />
-                        </div>
-                        <span className="text-[10px] text-stone-400 font-bold">{d.day}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-stone-800 text-xs text-stone-400">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-amber-500 rounded-sm" />
-                      <span>Visitas Diarias</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-sky-400 rounded-sm" />
-                      <span>Partidas Jugadas</span>
-                    </div>
+                    <span className="text-xs text-stone-400">Puntaje Promedio</span>
+                    <h3 className="font-game text-2xl text-sky-300 mt-1">
+                      {stats?.averageScore ? `${stats.averageScore.toLocaleString()} pts` : '0 pts'}
+                    </h3>
+                    <p className="text-[10px] text-stone-400 mt-1">Media por partida</p>
                   </div>
                 </div>
               </div>
