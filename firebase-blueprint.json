@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "RankingEntry": {
+      "title": "Ranking Entry",
+      "description": "Global Top 50 Leaderboard score entry for Fox Thief",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Player name" },
+        "score": { "type": "number", "description": "Final score" },
+        "gameId": { "type": "string", "description": "Game Identifier" },
+        "date": { "type": "string", "description": "ISO date string" },
+        "time": { "type": "string", "description": "Local time string" },
+        "timestamp": { "type": "number", "description": "Epoch timestamp" },
+        "basketsSold": { "type": "number", "description": "Total baskets sold" },
+        "foxesScared": { "type": "number", "description": "Total foxes scared" },
+        "eggsDelivered": { "type": "number", "description": "Total eggs delivered" }
+      },
+      "required": ["name", "score"]
+    },
+    "RecordHistoryEntry": {
+      "title": "Record History Entry",
+      "description": "Historical record broken entries",
+      "type": "object",
+      "properties": {
+        "playerName": { "type": "string" },
+        "previousRecord": { "type": "number" },
+        "newRecord": { "type": "number" },
+        "difference": { "type": "number" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "gameId": { "type": "string" }
+      }
+    },
+    "SessionLogEntry": {
+      "title": "Session Log Entry",
+      "description": "Game telemetry sessions",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "score": { "type": "number" },
+        "playerName": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" }
+      }
+    },
+    "MetaStats": {
+      "title": "Meta Stats",
+      "description": "Global summary game statistics",
+      "type": "object",
+      "properties": {
+        "totalVisits": { "type": "number" },
+        "gamesStarted": { "type": "number" },
+        "gamesCompleted": { "type": "number" },
+        "highestScore": { "type": "number" },
+        "currentRecordHolder": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "fox_thief_ranking/{docId}": {
+      "schema": "RankingEntry",
+      "description": "Public ranking scores"
+    },
+    "fox_thief_records_history/{docId}": {
+      "schema": "RecordHistoryEntry",
+      "description": "Record history"
+    },
+    "fox_thief_sessions/{docId}": {
+      "schema": "SessionLogEntry",
+      "description": "Telemetry logs"
+    },
+    "fox_thief_meta/{docId}": {
+      "schema": "MetaStats",
+      "description": "Global statistics"
+    }
+  }
+}

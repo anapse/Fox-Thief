@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow public read and write access for leaderboard scores and game telemetry
+    match /fox_thief_ranking/{docId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.score is number
+                           && request.resource.data.name is string;
+    }
+
+    match /fox_thief_records_history/{docId} {
+      allow read: if true;
+      allow create, update: if true;
+    }
+
+    match /fox_thief_sessions/{docId} {
+      allow read: if true;
+      allow create, update: if true;
+    }
+
+    match /fox_thief_meta/{docId} {
+      allow read: if true;
+      allow create, update, write: if true;
+    }
+  }
+}

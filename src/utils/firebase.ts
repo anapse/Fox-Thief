@@ -15,6 +15,7 @@ import {
   addDoc,
   doc,
   getDoc,
+  getDocFromServer,
   setDoc,
   updateDoc,
   increment,
@@ -32,13 +33,15 @@ import {
   User,
 } from 'firebase/auth';
 
+import appletConfig from '../../firebase-applet-config.json';
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || appletConfig.appId || '',
 };
 
 let app: FirebaseApp | null = null;
@@ -52,8 +55,17 @@ export const isFirebaseConfigured = Boolean(
 if (isFirebaseConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-    db = getFirestore(app);
+    const customDbId = appletConfig.firestoreDatabaseId;
+    db = customDbId && customDbId !== '(default)'
+      ? getFirestore(app, customDbId)
+      : getFirestore(app);
     auth = getAuth(app);
+
+    if (db) {
+      getDocFromServer(doc(db, 'fox_thief_meta', 'stats'))
+        .then(() => console.log('Firebase Firestore connection verified successfully.'))
+        .catch((err) => console.warn('Firebase Firestore test connection:', err));
+    }
   } catch (err) {
     console.warn('Firebase initialization skipped/failed:', err);
   }
