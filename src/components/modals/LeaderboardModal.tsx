@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { sounds } from '../../audio/soundManager';
-import { getLocalLeaderboard } from '../../utils/leaderboardService';
+import { getLocalLeaderboard, fetchTop50Ranking } from '../../utils/leaderboardService';
+import { PlayerRank } from '../../types/game';
 
 interface LeaderboardModalProps {
   isOpen: boolean;
@@ -12,9 +13,32 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  if (!isOpen) return null;
+  const [ranks, setRanks] = useState<PlayerRank[]>(() => getLocalLeaderboard());
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const ranks = useMemo(() => getLocalLeaderboard(), [isOpen]);
+  useEffect(() => {
+    if (isOpen) {
+      // 1. Instantly display whatever is cached locally
+      setRanks(getLocalLeaderboard());
+
+      // 2. Fetch live data directly from Firebase Firestore
+      setLoading(true);
+      fetchTop50Ranking()
+        .then((liveRanks) => {
+          if (Array.isArray(liveRanks)) {
+            setRanks(liveRanks);
+          }
+        })
+        .catch((err) => {
+          console.warn('Error retrieving live leaderboard:', err);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 select-none">
@@ -33,7 +57,12 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
         {/* Scrollable List or Empty State */}
         <div className="w-full flex-1 overflow-y-auto pr-1 flex flex-col gap-1.5 my-1 max-h-[58vh]">
-          {ranks.length === 0 ? (
+          {loading && ranks.length === 0 ? (
+            <div className="w-full py-8 flex flex-col items-center justify-center text-center my-auto">
+              <span className="text-3xl animate-spin mb-2">⏳</span>
+              <span className="font-game text-xs text-amber-200">Cargando clasificación...</span>
+            </div>
+          ) : ranks.length === 0 ? (
             <div className="w-full py-8 px-4 flex flex-col items-center justify-center text-center bg-amber-950/40 rounded-2xl border border-amber-800/60 my-auto">
               <span className="text-4xl mb-2">🌾</span>
               <span className="font-game text-sm text-yellow-300 font-bold block">
@@ -102,7 +131,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             sounds.playClick();
             onClose();
           }}
-          className="btn-wood w-full py-2.5 rounded-2xl flex items-center justify-center gap-2 text-white font-game text-base tracking-wide shadow-md active:scale-95 transition-all mt-3"
+          className="btn-wood w-full py-2.5 rounded-2xl flex items-center justify-center gap-2 text-white font-game text-base tracking-wide shadow-md active:scale-95 transition-all mt-3 cursor-pointer"
         >
           CERRAR
         </button>
