@@ -77,12 +77,14 @@ const BASE_PREFIX = import.meta.env.BASE_URL.endsWith('/')
   ? import.meta.env.BASE_URL
   : import.meta.env.BASE_URL + '/';
 
+export const GAME_BUILD_VERSION = '2.2';
+
 export function resolveAssetUrl(path: string): string {
   if (path.startsWith('data:') || path.startsWith('blob:') || path.startsWith('http')) {
     return path;
   }
   const clean = path.startsWith('/') ? path.slice(1) : path;
-  return `${BASE_PREFIX}${clean}`;
+  return `${BASE_PREFIX}${clean}?v=${GAME_BUILD_VERSION}`;
 }
 
 class AssetManager {

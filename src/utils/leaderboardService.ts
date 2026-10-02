@@ -52,9 +52,7 @@ export async function fetchTop50Ranking(): Promise<PlayerRank[]> {
   if (isFirebaseConfigured) {
     const remote = await fetchFirebaseTop50();
     if (remote && remote.length > 0) {
-      // Filter out any fake test names from remote query
-      const onlyRealRemote = remote.filter((entry) => !KNOWN_FAKE_NAMES.has(entry.name));
-      const mapped: PlayerRank[] = onlyRealRemote.map((entry, idx) => ({
+      const mapped: PlayerRank[] = remote.map((entry, idx) => ({
         rank: idx + 1,
         name: entry.name,
         score: entry.score,

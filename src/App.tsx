@@ -174,10 +174,10 @@ export default function App() {
   const handleRestart = () => {
     setIsPaused(false);
     setGameOverData(null);
-    logSessionEvent('game_start');
+    setGameState('menu');
     if (engineRef.current) {
       engineRef.current.restartGame();
-      engineRef.current.resume();
+      engineRef.current.pause();
     }
   };
 
@@ -185,6 +185,10 @@ export default function App() {
     setIsPaused(false);
     setGameOverData(null);
     setGameState('menu');
+    if (engineRef.current) {
+      engineRef.current.restartGame();
+      engineRef.current.pause();
+    }
   };
 
   const handleToggleSound = () => {

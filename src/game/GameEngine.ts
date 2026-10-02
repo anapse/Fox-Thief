@@ -200,7 +200,7 @@ export class GameEngine {
   public start() {
     if (this.isRunning) return;
     this.isRunning = true;
-    this.isPaused = false;
+    this.isPaused = true; // PAUSED by default until player clicks JUGAR
     this.lastTime = performance.now();
     requestAnimationFrame(this.loop);
   }
@@ -881,7 +881,7 @@ export class GameEngine {
       p.y = p.originalY;
       p.vy = 0;
     });
-    this.isPaused = false;
+    this.isPaused = true;
   }
 
   private spawnConfetti(x: number, y: number, count: number) {
