@@ -13,13 +13,16 @@ import {
   GAME_HEIGHT,
   COOP,
   COLLECTION_NEST,
+  GROUND_ZONE,
   BASKET,
+  BASKET_CAPACITY,
   POT_SLOTS,
   POT_COOLDOWN_DEFAULT,
   POT_GRAVITY,
   FOX_START_X,
   FOX_WALL_Y,
   FOX_SPEED_BASE,
+  FOX_SPEED_FAST,
   FOX_TAUNT_MESSAGES,
   FOX_TAUNT_DURATION,
 } from './constants';
@@ -50,7 +53,11 @@ export class GameEngine {
   // Dragging state
   private draggingEgg: Egg | null = null;
 
-  // Persistent Celebration Banner (3.5 seconds)
+  // Production and Fox Counters
+  private totalEggsProduced: number = 0;
+  private totalFoxSpawns: number = 0;
+
+  // Persistent Celebration Banner (1.6 seconds)
   private celebrationBanner = {
     active: false,
     timer: 0,
@@ -80,8 +87,9 @@ export class GameEngine {
   private maxHealth: number = 3.0;
 
   // Timers & Stats
-  private foxSpawnTimer: number = 3;
-  private foxSpawnInterval: number = 7;
+  private foxSpawnTimer: number = 3.2;
+  private foxSpawnInterval: number = 6.0;
+  private isNextFoxFast: boolean = false;
   private gameTime: number = 0;
 
   private stats: GameStats;
@@ -112,7 +120,7 @@ export class GameEngine {
       width: BASKET.width,
       height: BASKET.height,
       eggCount: 0,
-      capacity: 10,
+      capacity: BASKET_CAPACITY, // 25 eggs
       shakeTimer: 0,
       celebrating: false,
     };
@@ -132,7 +140,8 @@ export class GameEngine {
 
   private initEntities() {
     const turboLevel = this.getUpgradeLevel('turbo_hens');
-    const baseInterval = Math.max(3.2, 5.5 - (turboLevel - 1) * 0.6);
+    // Paced, slower base interval (6.5s to 9.5s)
+    const baseInterval = Math.max(6.0, 8.5 - (turboLevel - 1) * 0.6);
 
     // 3 Hens aligned to the tiers
     this.hens = COOP.hens.map((h) => ({
@@ -143,8 +152,8 @@ export class GameEngine {
       nestX: h.x,
       nestY: h.y + 10,
       state: 'idle',
-      layTimer: 1.5 + h.level * 1.8,
-      layInterval: baseInterval + Math.random() * 1.5,
+      layTimer: 1.5 + h.level * 2.2,
+      layInterval: baseInterval + Math.random() * 2.0,
       bobPhase: Math.random() * Math.PI * 2,
     }));
 
@@ -162,26 +171,29 @@ export class GameEngine {
       flowerColor: colors[idx % colors.length],
     }));
 
-    // Initial 2 eggs in nest
+    // Initial 2 eggs on the ground
     this.createGroundEgg();
     this.createGroundEgg();
   }
 
   private createGroundEgg() {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * 28;
+    const targetX = GROUND_ZONE.minX + Math.random() * (GROUND_ZONE.maxX - GROUND_ZONE.minX);
+    const targetY = GROUND_ZONE.minY + Math.random() * (GROUND_ZONE.maxY - GROUND_ZONE.minY);
+    this.totalEggsProduced += 1;
+
     this.eggs.push({
       id: 'egg_' + Math.random().toString(36).substring(2, 9),
       sourceHenId: 0,
-      x: COLLECTION_NEST.x + Math.cos(angle) * dist,
-      y: COLLECTION_NEST.y + Math.sin(angle) * dist * 0.6,
+      x: targetX,
+      y: targetY,
       state: 'nest',
       rollProgress: 1,
       startX: 0,
       startY: 0,
-      targetX: COLLECTION_NEST.x,
-      targetY: COLLECTION_NEST.y,
+      targetX,
+      targetY,
       glowPhase: Math.random() * Math.PI * 2,
+      isSuper: false,
     });
   }
 
@@ -227,12 +239,12 @@ export class GameEngine {
   private update(dt: number) {
     this.gameTime += dt;
 
-    // Update Hens & Laying
+    // Update Hens & Laying (Slower, more deliberate egg production)
     const turboLevel = this.getUpgradeLevel('turbo_hens');
-    const layRateMultiplier = 1 + (turboLevel - 1) * 0.15;
+    const layRateMultiplier = 1 + (turboLevel - 1) * 0.12;
 
     this.hens.forEach((hen) => {
-      hen.bobPhase += dt * 3.5;
+      hen.bobPhase += dt * 3.0;
       hen.layTimer += dt * layRateMultiplier;
 
       if (hen.layTimer >= hen.layInterval && hen.state === 'idle') {
@@ -243,7 +255,8 @@ export class GameEngine {
           setTimeout(() => {
             hen.state = 'idle';
             hen.layTimer = 0;
-            hen.layInterval = Math.max(3.0, 5.0 - (turboLevel - 1) * 0.5 + Math.random() * 2);
+            // Slower paced subsequent laying
+            hen.layInterval = Math.max(5.8, 8.0 - (turboLevel - 1) * 0.5 + Math.random() * 3.0);
           }, 800);
         }, 350);
       }
@@ -252,19 +265,19 @@ export class GameEngine {
     // Update Eggs
     for (let i = this.eggs.length - 1; i >= 0; i--) {
       const egg = this.eggs[i];
-      egg.glowPhase += dt * 4;
+      egg.glowPhase += dt * 4.5;
 
       if (egg.state === 'rolling') {
-        egg.rollProgress += dt * 1.5;
+        egg.rollProgress += dt * 1.3;
         const p = Math.min(egg.rollProgress, 1);
         egg.x = egg.startX + (egg.targetX - egg.startX) * p;
-        egg.y = egg.startY + (egg.targetY - egg.startY) * p + Math.sin(p * Math.PI) * 15;
+        egg.y = egg.startY + (egg.targetY - egg.startY) * p + Math.sin(p * Math.PI) * 18;
 
         if (p >= 1) {
           egg.state = 'nest';
-          egg.x = egg.targetX + (Math.random() - 0.5) * 35;
-          egg.y = egg.targetY + (Math.random() - 0.5) * 20;
-          this.spawnSparkles(egg.x, egg.y, 4, '#fde047');
+          egg.x = egg.targetX;
+          egg.y = egg.targetY;
+          this.spawnSparkles(egg.x, egg.y, egg.isSuper ? 12 : 4, egg.isSuper ? '#fbbf24' : '#fde047');
         }
       } else if (egg.state === 'collected' || egg.state === 'stolen') {
         this.eggs.splice(i, 1);
@@ -272,10 +285,6 @@ export class GameEngine {
     }
 
     // Update Flower Pots
-    const potHeavyLevel = this.getUpgradeLevel('heavy_pots');
-    const cooldownReduction = (potHeavyLevel - 1) * 0.75;
-    const activeCooldown = Math.max(1.8, POT_COOLDOWN_DEFAULT - cooldownReduction);
-
     this.pots.forEach((pot) => {
       if (pot.state === 'falling') {
         pot.vy += POT_GRAVITY * dt;
@@ -298,7 +307,7 @@ export class GameEngine {
             this.bonkFox();
             this.shatterPot(pot.x, pot.y, pot.flowerColor);
             pot.state = 'cooldown';
-            pot.cooldownTimer = activeCooldown;
+            pot.cooldownTimer = POT_COOLDOWN_DEFAULT;
             pot.x = pot.originalX;
             pot.y = pot.originalY;
             pot.vy = 0;
@@ -310,7 +319,7 @@ export class GameEngine {
         if (pot.y >= 640) {
           this.shatterPot(pot.x, pot.y, pot.flowerColor);
           pot.state = 'cooldown';
-          pot.cooldownTimer = activeCooldown;
+          pot.cooldownTimer = POT_COOLDOWN_DEFAULT;
           pot.x = pot.originalX;
           pot.y = pot.originalY;
           pot.vy = 0;
@@ -418,6 +427,22 @@ export class GameEngine {
     const config = COOP.hens[hen.level];
     sounds.playEggLay();
 
+    this.totalEggsProduced += 1;
+
+    // Super Egg spawns approximately every 100 eggs produced
+    const isSuperEgg = this.totalEggsProduced > 0 && this.totalEggsProduced % 100 === 0;
+
+    // Variable landing position within ground zone
+    let targetX = GROUND_ZONE.minX + Math.random() * (GROUND_ZONE.maxX - GROUND_ZONE.minX);
+    let targetY = GROUND_ZONE.minY + Math.random() * (GROUND_ZONE.maxY - GROUND_ZONE.minY);
+
+    if (isSuperEgg) {
+      // Super egg lands in slightly further distinctive spot
+      targetX = 250 + Math.random() * 110;
+      targetY = 700 + Math.random() * 75;
+      this.addFloatingText('✨ ¡SÚPER HUEVO! ✨', targetX, targetY - 40, '#facc15', 34);
+    }
+
     const egg: Egg = {
       id: 'egg_' + Math.random().toString(36).substring(2, 9),
       sourceHenId: hen.id,
@@ -427,19 +452,19 @@ export class GameEngine {
       rollProgress: 0,
       startX: config.x,
       startY: config.y - 15,
-      targetX: COLLECTION_NEST.x,
-      targetY: COLLECTION_NEST.y,
+      targetX,
+      targetY,
       glowPhase: 0,
+      isSuper: isSuperEgg,
     };
     this.eggs.push(egg);
 
-    this.spawnSparkles(egg.x, egg.y, 5, '#ffffff');
+    this.spawnSparkles(egg.x, egg.y, isSuperEgg ? 14 : 5, isSuperEgg ? '#facc15' : '#ffffff');
   }
 
   private shatterPot(x: number, y: number, flowerColor: string) {
     sounds.playPotHitFox();
 
-    // Add permanent smashed pot frame on ground
     this.smashedPots.push({
       x,
       y: Math.min(y, 560),
@@ -484,32 +509,49 @@ export class GameEngine {
   private updateFox(dt: number) {
     if (!this.fox) {
       this.foxSpawnTimer -= dt;
+
+      // Predict if next fox is fast for pre-warning alert
+      this.isNextFoxFast = (this.totalFoxSpawns + 1) % 10 === 0;
+
       if (this.foxSpawnTimer <= 0) {
-        const difficultyBonus = Math.min(45, Math.floor(this.gameTime / 25) * 5);
+        this.totalFoxSpawns += 1;
+        // Every 10th fox is a Zorro Rápido
+        const isFastFox = this.totalFoxSpawns % 10 === 0;
+
+        const difficultyBonus = Math.min(40, Math.floor(this.gameTime / 30) * 5);
+        const baseSpeed = isFastFox ? FOX_SPEED_FAST : FOX_SPEED_BASE;
+
         this.fox = {
           x: FOX_START_X,
           y: FOX_WALL_Y,
-          vx: -(FOX_SPEED_BASE + difficultyBonus),
+          vx: -(baseSpeed + difficultyBonus),
           state: 'walking',
           stateTimer: 0,
           tauntMessage: '',
           stolenEgg: false,
           facing: 'left',
           animTimer: 0,
+          isFast: isFastFox,
           dizzyStars: [
             { angle: 0, dist: 28 },
             { angle: (Math.PI * 2) / 3, dist: 28 },
             { angle: (Math.PI * 4) / 3, dist: 28 },
           ],
         };
-        this.foxSpawnInterval = Math.max(3.8, 6.8 - Math.min(3.0, this.gameTime / 25));
+
+        if (isFastFox) {
+          this.addFloatingText('⚡ ¡ZORRO RÁPIDO! ⚡', FOX_START_X - 100, FOX_WALL_Y - 90, '#facc15', 34);
+        }
+
+        // Moderate waiting interval (4.5s to 6.2s)
+        this.foxSpawnInterval = Math.max(4.2, 5.8 - Math.min(2.0, this.gameTime / 40));
         this.foxSpawnTimer = this.foxSpawnInterval;
       }
       return;
     }
 
     const fox = this.fox;
-    fox.animTimer += dt * 8; // 8 fps walk cycle
+    fox.animTimer += dt * (fox.isFast ? 14 : 8); // Faster animation cycle for fast fox
 
     if (fox.state === 'walking') {
       fox.x += fox.vx * dt;
@@ -521,12 +563,12 @@ export class GameEngine {
     } else if (fox.state === 'stealing') {
       fox.stateTimer += dt;
       const dx = COLLECTION_NEST.x - fox.x;
-      const dy = COLLECTION_NEST.y + 10 - fox.y; // Move down to lower floor nest
-      fox.x += dx * dt * 4;
-      fox.y += dy * dt * 4;
+      const dy = COLLECTION_NEST.y + 10 - fox.y;
+      fox.x += dx * dt * (fox.isFast ? 6 : 4);
+      fox.y += dy * dt * (fox.isFast ? 6 : 4);
 
-      if (fox.stateTimer >= 0.8 && !fox.stolenEgg) {
-        // Steal ALL eggs currently on ground or in nest!
+      if (fox.stateTimer >= (fox.isFast ? 0.45 : 0.75) && !fox.stolenEgg) {
+        // Steal ALL eggs currently on ground or rolling!
         const eggsOnGround = this.eggs.filter(
           (e) => e.state === 'nest' || e.state === 'rolling'
         );
@@ -548,10 +590,10 @@ export class GameEngine {
           fox.stolenEgg = true;
         }
 
-        // Subtract 0.5 heart on fox theft
-        this.health = Math.max(0, this.health - 0.5);
+        // Subtacts exactly 1 FULL HEART (-1.0) on fox theft
+        this.health = Math.max(0, this.health - 1.0);
         sounds.playHurt();
-        this.addFloatingText('💔 -0.5 VIDA', fox.x, fox.y - 170, '#f43f5e', 28);
+        this.addFloatingText('💔 -1 VIDA', fox.x, fox.y - 170, '#f43f5e', 32);
 
         fox.state = 'taunting';
         fox.stateTimer = 0;
@@ -567,13 +609,12 @@ export class GameEngine {
       }
     } else if (fox.state === 'taunting') {
       fox.stateTimer += dt;
-      // Keep fox low on the ground while taunting
       fox.y = COLLECTION_NEST.y + 10;
       if (fox.stateTimer >= FOX_TAUNT_DURATION) {
         fox.state = 'fleeing';
         fox.facing = 'left';
-        fox.vx = -340; // Flee fast to the LEFT
-        fox.y = COLLECTION_NEST.y + 10; // Keep down on the ground as he runs away to the left!
+        fox.vx = fox.isFast ? -480 : -340;
+        fox.y = COLLECTION_NEST.y + 10;
       }
     } else if (fox.state === 'bonked') {
       fox.stateTimer += dt;
@@ -581,10 +622,10 @@ export class GameEngine {
         star.angle += dt * 6;
       });
 
-      if (fox.stateTimer >= 0.9) {
+      if (fox.stateTimer >= 0.85) {
         fox.state = 'fleeing';
         fox.facing = 'right';
-        fox.vx = 340;
+        fox.vx = fox.isFast ? 460 : 340;
       }
     } else if (fox.state === 'fleeing') {
       fox.x += fox.vx * dt;
@@ -641,12 +682,12 @@ export class GameEngine {
         }
       }
 
-      // Check if clicked Egg in nest
+      // Check if clicked Egg in ground zone
       for (let i = this.eggs.length - 1; i >= 0; i--) {
         const egg = this.eggs[i];
         if (egg.state === 'nest' || egg.state === 'rolling') {
           const dist = Math.hypot(pos.x - egg.x, pos.y - egg.y);
-          if (dist <= 54) {
+          if (dist <= (egg.isSuper ? 68 : 54)) {
             this.draggingEgg = egg;
             egg.state = 'dragging';
             sounds.playEggPickup();
@@ -680,21 +721,34 @@ export class GameEngine {
         egg.y <= basketBottom
       ) {
         egg.state = 'collected';
-        this.basket.eggCount += 1;
-        this.basket.shakeTimer = 0.25;
-        this.stats.eggsDelivered += 1;
-        saveStats(this.stats);
 
-        sounds.playEggInBasket();
-        this.spawnSparkles(egg.x, egg.y, 8, '#ffffff');
-
-        if (this.basket.eggCount >= this.basket.capacity) {
+        if (egg.isSuper) {
+          // Super Egg immediately fills the basket completely!
+          this.basket.eggCount = this.basket.capacity;
+          this.stats.eggsDelivered += 1;
+          saveStats(this.stats);
+          sounds.playEggInBasket();
+          this.addFloatingText('✨ ¡CESTA COMPLETADA! ✨', this.basket.x + this.basket.width / 2, this.basket.y - 50, '#facc15', 32);
+          this.spawnSparkles(this.basket.x + this.basket.width / 2, this.basket.y + 40, 25, '#fbbf24');
           this.sellBasket();
+        } else {
+          this.basket.eggCount += 1;
+          this.basket.shakeTimer = 0.25;
+          this.stats.eggsDelivered += 1;
+          saveStats(this.stats);
+
+          sounds.playEggInBasket();
+          this.spawnSparkles(egg.x, egg.y, 8, '#ffffff');
+
+          if (this.basket.eggCount >= this.basket.capacity) {
+            this.sellBasket();
+          }
         }
       } else {
+        // Return to a valid ground position
         egg.state = 'nest';
-        egg.x = COLLECTION_NEST.x + (Math.random() - 0.5) * 35;
-        egg.y = COLLECTION_NEST.y + (Math.random() - 0.5) * 20;
+        egg.x = GROUND_ZONE.minX + Math.random() * (GROUND_ZONE.maxX - GROUND_ZONE.minX);
+        egg.y = GROUND_ZONE.minY + Math.random() * (GROUND_ZONE.maxY - GROUND_ZONE.minY);
       }
     };
 
@@ -751,11 +805,20 @@ export class GameEngine {
     }
     saveStats(this.stats);
 
-    // Heal +0.5 heart on successful basket sale
+    // Heal +0.5 heart on successful basket sale (never exceeds 3.0)
     this.health = Math.min(this.maxHealth, this.health + 0.5);
     this.addFloatingText('❤️ +0.5 VIDA', this.basket.x + this.basket.width / 2, this.basket.y - 65, '#10b981', 28);
 
-    // Trigger celebration banner (lasts 1.6s and placed at top sky so it never blocks the fox)
+    // Recover ONLY +1 Flower Pot (instead of all pots)
+    const potToRecover = this.pots.find((p) => p.state === 'cooldown');
+    if (potToRecover) {
+      potToRecover.state = 'ready';
+      potToRecover.cooldownTimer = 0;
+      this.spawnSparkles(potToRecover.x, potToRecover.y, 10, '#4ade80');
+      this.addFloatingText('🪴 +1 MACETA', potToRecover.x, potToRecover.y - 45, '#4ade80', 26);
+    }
+
+    // Trigger celebration banner
     this.celebrationBanner = {
       active: true,
       timer: 1.6,
@@ -764,7 +827,7 @@ export class GameEngine {
       subtitle: `+${basketValue} MONEDAS DE ORO 💰`,
     };
 
-    // Spawn 10 flying coins that arc towards the HUD Coins panel (top-left combined panel)
+    // Spawn 10 flying coins that arc towards the HUD Coins panel
     for (let i = 0; i < 10; i++) {
       this.flyingCoins.push({
         x: this.basket.x + this.basket.width / 2 + (Math.random() - 0.5) * 80,
@@ -782,7 +845,7 @@ export class GameEngine {
       });
     }
 
-    // Massive particle celebration
+    // Particle celebration
     this.spawnConfetti(GAME_WIDTH / 2, 250, 60);
     this.spawnCoins(this.basket.x + this.basket.width / 2, this.basket.y, 35);
     this.spawnSparkles(this.basket.x + this.basket.width / 2, this.basket.y + 40, 30, '#fef08a');
@@ -809,7 +872,15 @@ export class GameEngine {
     this.fox = null;
     this.basket.eggCount = 0;
     this.flyingCoins = [];
-    this.foxSpawnTimer = 3;
+    this.foxSpawnTimer = 3.2;
+    this.totalEggsProduced = 0;
+    this.totalFoxSpawns = 0;
+    this.pots.forEach((p) => {
+      p.state = 'ready';
+      p.cooldownTimer = 0;
+      p.y = p.originalY;
+      p.vy = 0;
+    });
     this.isPaused = false;
   }
 
@@ -905,38 +976,80 @@ export class GameEngine {
     // 1. OFFICIAL BACKGROUND (fondo.png)
     assetManager.drawSprite(ctx, 'background', 0, 0, GAME_WIDTH, GAME_HEIGHT, 0, 0);
 
-    // 2. OFFICIAL HENS (Gallina en el nido.png)
+    // 2. Red Danger Flashing Alert when fox is approaching or attacking
+    this.renderDangerOverlay(ctx);
+
+    // 3. OFFICIAL HENS (Gallina en el nido.png)
     this.renderHens(ctx);
 
-    // 3. Smashed Pots on Ground (macetas.png Row 2)
+    // 4. Smashed Pots on Ground (macetas.png Row 2)
     this.renderSmashedPots(ctx);
 
-    // 4. OFFICIAL BASKET (Cesta.png)
+    // 5. OFFICIAL BASKET (Cesta.png)
     this.renderBasket(ctx);
 
-    // 5. OFFICIAL FLOWER POTS ON WALL (macetas.png Row 0 & Row 1)
+    // 6. OFFICIAL FLOWER POTS ON WALL (macetas.png Row 0 & Row 1)
     this.renderPots(ctx);
 
-    // 6. OFFICIAL SNEAKY FOX (zorro.png Spritesheet)
+    // 7. OFFICIAL SNEAKY FOX (zorro.png Spritesheet)
     this.renderFox(ctx);
 
-    // 7. OFFICIAL EGGS (Huevo individual.png)
+    // 8. OFFICIAL EGGS (Huevo individual.png & Super Egg variant)
     this.renderEggs(ctx);
 
-    // 8. Dragging Egg
+    // 9. Dragging Egg
     if (this.draggingEgg) {
       this.renderDraggingEgg(ctx, this.draggingEgg);
     }
 
-    // 9. Floating texts and sparkles
+    // 10. Floating texts and sparkles
     this.renderParticles(ctx);
     this.renderFlyingCoins(ctx);
     this.renderFloatingTexts(ctx);
 
-    // 10. Persistent Celebration Banner (Canasta Llena)
+    // 11. Persistent Celebration Banner (Canasta Llena)
     if (this.celebrationBanner.active) {
       this.renderCelebrationBanner(ctx);
     }
+  }
+
+  // Red Danger Warning Flashing Overlay (Requirements 13 & 14)
+  private renderDangerOverlay(ctx: CanvasRenderingContext2D) {
+    const isFoxAttacking =
+      this.fox !== null &&
+      (this.fox.state === 'walking' || this.fox.state === 'stealing');
+    const isFoxIncoming = !this.fox && this.foxSpawnTimer <= 1.8;
+
+    if (!isFoxAttacking && !isFoxIncoming) return;
+
+    const isFast = this.fox ? Boolean(this.fox.isFast) : this.isNextFoxFast;
+    // Fast Fox pulses faster (13 Hz) vs normal fox (7 Hz)
+    const frequency = isFast ? 13 : 7;
+    const pulse = Math.sin(this.gameTime * frequency) * 0.5 + 0.5;
+    const baseAlpha = isFast ? 0.08 : 0.05;
+    const peakAlpha = isFast ? 0.24 : 0.15;
+    const currentAlpha = baseAlpha + pulse * (peakAlpha - baseAlpha);
+
+    ctx.save();
+    // Semi-transparent reddish flashing tint
+    ctx.fillStyle = `rgba(220, 38, 38, ${currentAlpha.toFixed(3)})`;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Red danger edge vignette
+    const gradient = ctx.createRadialGradient(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH * 0.25,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH * 0.75
+    );
+    gradient.addColorStop(0, 'rgba(239, 68, 68, 0)');
+    gradient.addColorStop(1, `rgba(185, 28, 28, ${(currentAlpha * 1.5).toFixed(3)})`);
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    ctx.restore();
   }
 
   private renderFlyingCoins(ctx: CanvasRenderingContext2D) {
@@ -983,17 +1096,15 @@ export class GameEngine {
     ctx.globalAlpha = alpha;
 
     const bx = GAME_WIDTH / 2;
-    const by = 195; // Top sky area, completely clear of the fox and farm yard!
+    const by = 195; // Top sky area
     const bannerW = 400 * enterScale;
     const bannerH = 100 * enterScale;
 
     if (bannerW > 50) {
-      // Shimmering Golden Glow around the banner
       ctx.shadowColor = 'rgba(250, 204, 21, 0.8)';
       ctx.shadowBlur = 20;
       ctx.shadowOffsetY = 4;
 
-      // Wooden & Gold Ribbon Plaque
       ctx.fillStyle = '#451a03';
       ctx.beginPath();
       ctx.roundRect(bx - bannerW / 2 - 6, by - bannerH / 2 - 6, bannerW + 12, bannerH + 12, 22);
@@ -1004,14 +1115,12 @@ export class GameEngine {
       ctx.roundRect(bx - bannerW / 2, by - bannerH / 2, bannerW, bannerH, 18);
       ctx.fill();
 
-      // Golden inner border
       ctx.strokeStyle = '#facc15';
       ctx.lineWidth = 4;
       ctx.stroke();
 
       ctx.shadowColor = 'transparent';
 
-      // Title
       ctx.font = '900 26px Lilita One, Fredoka, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
@@ -1020,13 +1129,11 @@ export class GameEngine {
       ctx.strokeText(cb.title, bx, by - 10);
       ctx.fillText(cb.title, bx, by - 10);
 
-      // Subtitle
       ctx.font = '800 21px Lilita One, Fredoka, sans-serif';
       ctx.fillStyle = '#4ade80';
       ctx.strokeText(cb.subtitle, bx, by + 22);
       ctx.fillText(cb.subtitle, bx, by + 22);
 
-      // Shimmering progress indicator under banner
       const barW = (bannerW - 50) * progress;
       ctx.fillStyle = '#facc15';
       ctx.fillRect(bx - (bannerW - 50) / 2, by + 36, barW, 3.5);
@@ -1042,7 +1149,6 @@ export class GameEngine {
       const henX = config.x;
       const henY = config.y + bob;
 
-      // Draw official Gallina en el nido.png anchored at bottom so the nest sits solidly on the shelf
       assetManager.drawSprite(
         ctx,
         'hen',
@@ -1072,21 +1178,21 @@ export class GameEngine {
     const bx = b.x + shakeOffset;
     const by = b.y;
 
-    // Wooden sign above basket showing count
+    // Wooden sign above basket showing count (e.g. 7 / 25)
     ctx.fillStyle = '#78350f';
     ctx.beginPath();
-    ctx.roundRect(bx + 30, by - 48, b.width - 60, 40, 12);
+    ctx.roundRect(bx + 20, by - 48, b.width - 40, 40, 12);
     ctx.fill();
     ctx.strokeStyle = '#fef08a';
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    ctx.font = '800 24px Lilita One, Fredoka, sans-serif';
+    ctx.font = '800 23px Lilita One, Fredoka, sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.fillText(`🥚 ${b.eggCount} / ${b.capacity}`, bx + b.width / 2, by - 20);
 
-    // Draw official Cesta.png (even larger size)
+    // Draw official Cesta.png
     assetManager.drawSprite(
       ctx,
       'basket',
@@ -1098,14 +1204,14 @@ export class GameEngine {
       0.5
     );
 
-    // Draw actual egg sprites inside basket (larger eggs!)
-    const eggCountToDraw = Math.min(b.eggCount, 8);
+    // Draw egg sprites inside basket
+    const eggCountToDraw = Math.min(b.eggCount, 12);
     const eggFrame = assetManager.getEggFrame();
     if (eggFrame) {
       for (let i = 0; i < eggCountToDraw; i++) {
-        const ex = bx + 65 + (i % 4) * 44 + Math.floor(i / 4) * 15;
-        const ey = by + 55 + Math.floor(i / 4) * 26;
-        assetManager.drawFrame(ctx, 'egg', eggFrame, ex, ey, 40, 48, 0.5, 0.5);
+        const ex = bx + 55 + (i % 5) * 36 + Math.floor(i / 5) * 12;
+        const ey = by + 50 + Math.floor(i / 5) * 22;
+        assetManager.drawFrame(ctx, 'egg', eggFrame, ex, ey, 36, 44, 0.5, 0.5);
       }
     }
 
@@ -1127,7 +1233,7 @@ export class GameEngine {
       const py = pot.y;
 
       if (pot.state === 'cooldown') {
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.3;
         this.drawPotSprite(ctx, px, py, pot, idx);
         ctx.globalAlpha = 1.0;
 
@@ -1161,14 +1267,12 @@ export class GameEngine {
     idx: number
   ) {
     if (pot.state === 'falling') {
-      // Row 1 of macetas.png (falling animation frames 0..4, larger size)
       const frameIdx = Math.min(4, Math.floor((pot.vy / 600) * 5));
       const frame = assetManager.getPotFrame('falling', frameIdx);
       if (frame) {
         assetManager.drawFrame(ctx, 'pots', frame, x, y, 94, 94, 0.5, 0.5);
       }
     } else {
-      // Row 0 of macetas.png (intact pots frames 0..3, larger size)
       const frame = assetManager.getPotFrame('intact', idx % 4);
       if (frame) {
         assetManager.drawFrame(ctx, 'pots', frame, x, y, 88, 84, 0.5, 0.5);
@@ -1193,28 +1297,26 @@ export class GameEngine {
     const fox = this.fox;
     ctx.save();
 
-    // Red alert indicator when fox first appears on right ledge
-    if (fox.x > 500 && fox.state === 'walking') {
-      ctx.fillStyle = '#ef4444';
+    // Alert indicator when fox enters
+    if (fox.x > 480 && fox.state === 'walking') {
+      ctx.fillStyle = fox.isFast ? '#facc15' : '#ef4444';
       ctx.beginPath();
-      ctx.arc(fox.x - 30, fox.y - 50, 18, 0, Math.PI * 2);
+      ctx.arc(fox.x - 30, fox.y - 50, 20, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
       ctx.stroke();
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '800 22px Lilita One, sans-serif';
+      ctx.fillStyle = '#000000';
+      ctx.font = '900 20px Lilita One, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('!', fox.x - 30, fox.y - 43);
+      ctx.fillText(fox.isFast ? '⚡' : '!', fox.x - 30, fox.y - 43);
     }
 
-    // Dynamic size: smaller when walking (easier to aim falling pots), BIG when taunting / bonked
     const isBigState =
       fox.state === 'taunting' || fox.state === 'stealing' || fox.state === 'bonked';
     const renderHeight = isBigState ? 200 : 135;
 
-    // Get exact frame from measured spritesheet coordinates
     const timer = fox.state === 'walking' ? fox.animTimer : fox.stateTimer;
     const frame = assetManager.getFoxFrameByState(fox.state, timer);
     if (frame) {
@@ -1228,12 +1330,12 @@ export class GameEngine {
         renderWidth,
         renderHeight,
         0.5,
-        0.9, // Paws firmly on the ground path
+        0.9,
         fox.facing === 'right'
       );
     }
 
-    // Render Dizzy Stars if bonked
+    // Dizzy Stars if bonked
     if (fox.state === 'bonked') {
       fox.dizzyStars.forEach((star) => {
         const sx = fox.x + Math.cos(star.angle) * (star.dist * 1.4);
@@ -1244,11 +1346,11 @@ export class GameEngine {
       });
     }
 
-    // Taunt Speech Bubble: positioned floating well ABOVE the fox so it never covers his face!
+    // Speech bubble above fox
     if (fox.state === 'taunting' && fox.tauntMessage) {
       const bubbleWidth = Math.max(195, fox.tauntMessage.length * 13 + 36);
       const bx = Math.min(GAME_WIDTH - bubbleWidth / 2 - 15, Math.max(bubbleWidth / 2 + 15, fox.x));
-      const by = fox.y - 235; // Positioned well above the fox head!
+      const by = fox.y - 235;
 
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.35)';
@@ -1264,7 +1366,6 @@ export class GameEngine {
       ctx.fill();
       ctx.stroke();
 
-      // Tail pointing DOWN towards fox head
       ctx.beginPath();
       ctx.moveTo(fox.x - 14, by + 26);
       ctx.lineTo(fox.x, fox.y - 130);
@@ -1290,24 +1391,55 @@ export class GameEngine {
 
     this.eggs.forEach((egg) => {
       if (egg.state === 'nest' || egg.state === 'rolling') {
-        const glowScale = 1 + Math.sin(egg.glowPhase) * 0.15;
+        const glowScale = 1 + Math.sin(egg.glowPhase) * 0.18;
         ctx.save();
-        ctx.fillStyle = 'rgba(253, 224, 71, 0.4)';
-        ctx.beginPath();
-        ctx.ellipse(egg.x, egg.y, 30 * glowScale, 36 * glowScale, 0, 0, Math.PI * 2);
-        ctx.fill();
 
-        assetManager.drawFrame(
-          ctx,
-          'egg',
-          eggFrame,
-          egg.x,
-          egg.y,
-          48, // Larger ground eggs!
-          58,
-          0.5,
-          0.5
-        );
+        if (egg.isSuper) {
+          // Super Egg: Brilliant pulsating golden aura and sparkles
+          const radGrad = ctx.createRadialGradient(egg.x, egg.y, 10, egg.x, egg.y, 55 * glowScale);
+          radGrad.addColorStop(0, 'rgba(250, 204, 21, 0.85)');
+          radGrad.addColorStop(0.6, 'rgba(234, 179, 8, 0.45)');
+          radGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+          ctx.fillStyle = radGrad;
+          ctx.beginPath();
+          ctx.arc(egg.x, egg.y, 55 * glowScale, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Super Egg sprite (larger size: 66 x 80 px)
+          assetManager.drawFrame(
+            ctx,
+            'egg',
+            eggFrame,
+            egg.x,
+            egg.y,
+            66,
+            80,
+            0.5,
+            0.5
+          );
+
+          // Golden crown or sparkle marker
+          ctx.font = '22px sans-serif';
+          ctx.fillText('✨', egg.x + 16, egg.y - 24);
+        } else {
+          // Normal Egg: Clean soft aura
+          ctx.fillStyle = 'rgba(253, 224, 71, 0.4)';
+          ctx.beginPath();
+          ctx.ellipse(egg.x, egg.y, 30 * glowScale, 36 * glowScale, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          assetManager.drawFrame(
+            ctx,
+            'egg',
+            eggFrame,
+            egg.x,
+            egg.y,
+            48,
+            58,
+            0.5,
+            0.5
+          );
+        }
         ctx.restore();
       }
     });
@@ -1324,18 +1456,41 @@ export class GameEngine {
     ctx.ellipse(egg.x, egg.y + 50, 28, 12, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Large dragged egg
-    assetManager.drawFrame(
-      ctx,
-      'egg',
-      eggFrame,
-      egg.x,
-      egg.y,
-      58,
-      70,
-      0.5,
-      0.5
-    );
+    if (egg.isSuper) {
+      // Super Egg dragged
+      const glowScale = 1 + Math.sin(egg.glowPhase) * 0.18;
+      const radGrad = ctx.createRadialGradient(egg.x, egg.y, 10, egg.x, egg.y, 65 * glowScale);
+      radGrad.addColorStop(0, 'rgba(250, 204, 21, 0.9)');
+      radGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+      ctx.fillStyle = radGrad;
+      ctx.beginPath();
+      ctx.arc(egg.x, egg.y, 65 * glowScale, 0, Math.PI * 2);
+      ctx.fill();
+
+      assetManager.drawFrame(
+        ctx,
+        'egg',
+        eggFrame,
+        egg.x,
+        egg.y,
+        76,
+        92,
+        0.5,
+        0.5
+      );
+    } else {
+      assetManager.drawFrame(
+        ctx,
+        'egg',
+        eggFrame,
+        egg.x,
+        egg.y,
+        58,
+        70,
+        0.5,
+        0.5
+      );
+    }
 
     // Finger pointer cue
     ctx.font = '40px sans-serif';

@@ -2,7 +2,7 @@ export const GAME_WIDTH = 720;
 export const GAME_HEIGHT = 1280;
 export const ASPECT_RATIO = 9 / 16;
 
-export const BASKET_CAPACITY = 10;
+export const BASKET_CAPACITY = 25; // Updated to 25 eggs capacity
 export const BASE_BASKET_VALUE = 10;
 
 // Coop positions and hen perches aligned with the wooden coop in fondo.png
@@ -18,14 +18,22 @@ export const COOP = {
   ],
 };
 
-// Central ground nest moved higher, right near the coop ramps
+// Ground landing zone bounds for variable egg positions
+export const GROUND_ZONE = {
+  minX: 165,
+  maxX: 360,
+  minY: 670,
+  maxY: 775,
+};
+
+// Central ground nest coordinates
 export const COLLECTION_NEST = {
   x: 215,
   y: 685,
   radius: 75,
 };
 
-// Even larger Wicker basket in the farm yard
+// Wicker basket in the farm yard
 export const BASKET = {
   x: 405,
   y: 790,
@@ -33,7 +41,7 @@ export const BASKET = {
   height: 195,
 };
 
-// Flower pots placed higher up on top of the wall (y = 315)
+// Flower pots placed on top of the wall (y = 315)
 export const WALL_Y = 315;
 export const POT_SLOTS = [
   { id: 0, x: 280, y: 315 },
@@ -43,14 +51,15 @@ export const POT_SLOTS = [
   { id: 4, x: 660, y: 315 },
 ];
 
-export const POT_COOLDOWN_DEFAULT = 3.8; // seconds
+export const POT_COOLDOWN_DEFAULT = 18.0; // Strategic cooldown; recovered +1 on basket completion
 export const POT_GRAVITY = 1500; // px/s^2
 
-// Fox parameters: enters lower on the screen (y = 540) so pots fall onto him
+// Fox parameters
 export const FOX_START_X = 760;
-export const FOX_WALL_Y = 540; // Lower path so falling pots cleanly hit him
-export const FOX_SPEED_BASE = 95; // px per second
-export const FOX_TAUNT_DURATION = 3.2; // Taunt duration
+export const FOX_WALL_Y = 540; // Path aligned so falling pots hit him cleanly
+export const FOX_SPEED_BASE = 115; // px per second
+export const FOX_SPEED_FAST = 215; // Zorro Rápido (every 10th fox)
+export const FOX_TAUNT_DURATION = 3.0; // Taunt duration
 export const FOX_TAUNT_MESSAGES = [
   '¡JAJAJA! 🥚',
   '¡GRACIAS POR EL HUEVO!',

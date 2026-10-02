@@ -23,6 +23,7 @@ export interface Egg {
   targetX: number;
   targetY: number;
   glowPhase: number;
+  isSuper?: boolean; // Special Super Egg variant
 }
 
 export interface FlowerPot {
@@ -51,6 +52,7 @@ export interface Fox {
   animTimer: number;
   targetEggId?: string;
   dizzyStars: { angle: number; dist: number }[];
+  isFast?: boolean; // Zorro Rápido variant (every 10th fox)
 }
 
 export interface Particle {
