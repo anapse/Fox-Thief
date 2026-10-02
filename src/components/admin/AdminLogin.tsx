@@ -11,7 +11,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
   onLoginSuccess,
   onBackToGame,
 }) => {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState('anapse');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,7 +26,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
       if (ok) {
         onLoginSuccess();
       } else {
-        setError('Usuario o contraseña incorrectos. Verifica tus credenciales.');
+        setError('Usuario o contraseña incorrectos. Verifica tus credenciales (Usuario: anapse | Clave: 16546203).');
       }
     } catch {
       setError('Error al procesar la autenticación. Intenta nuevamente.');
@@ -49,7 +49,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
           className="h-20 object-contain drop-shadow mb-2"
         />
 
-        <div className="text-center mb-6">
+        <div className="text-center mb-5">
           <h1 className="font-game text-2xl sm:text-3xl text-yellow-400 font-extrabold tracking-wider">
             PANEL ADMINISTRATIVO
           </h1>
@@ -73,10 +73,9 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
             <input
               type="text"
               required
-              autoFocus
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Ingresa tu usuario"
+              placeholder="Ingresa tu usuario (ej. anapse)"
               className="w-full px-4 py-2.5 rounded-xl bg-stone-950/90 border border-stone-700 text-white placeholder:text-stone-600 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 text-sm transition-all"
             />
           </div>
@@ -88,6 +87,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
             <input
               type="password"
               required
+              autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"

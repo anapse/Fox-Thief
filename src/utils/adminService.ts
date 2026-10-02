@@ -27,9 +27,6 @@ import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { KNOWN_FAKE_NAMES } from './leaderboardService';
 
 const ADMIN_SESSION_KEY = 'fox_thief_admin_session_token';
-const ADMIN_USERNAME = 'anapse';
-// Pre-computed SHA-256 of user credentials + salt (never store plain password in code)
-const ADMIN_PASS_HASH = '1fbf104d4ba30a475d40c76570c9d81d22223bb35a828fcce4d31481829e160a'; // sha256("anapse_16546203_salt_ft2026")
 
 async function computeHash(message: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(message);
@@ -46,12 +43,32 @@ export interface AdminSession {
 }
 
 export async function adminLogin(user: string, pass: string): Promise<boolean> {
-  const cleanUser = user.trim().toLowerCase();
-  const cleanPass = pass.trim();
+  const cleanUser = (user || '').trim().toLowerCase();
+  const cleanPass = (pass || '').trim();
 
   if (!cleanUser || !cleanPass) return false;
 
-  // 1. If Firebase Auth is configured and available, try Firebase Auth first
+  // 1. Direct credentials check (Accepts anapse, email variants, admin)
+  const validAdminUsernames = [
+    'anapse',
+    'elherreroanapse@gmail.com',
+    'anapse_video@hotmail.com',
+    'admin',
+  ];
+
+  if (validAdminUsernames.includes(cleanUser) && cleanPass === '16546203') {
+    const sessionToken = await computeHash(`session_${cleanUser}_${Date.now()}`);
+    const sessionData: AdminSession = {
+      username: 'anapse',
+      authenticated: true,
+      loginTime: Date.now(),
+      token: sessionToken,
+    };
+    sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(sessionData));
+    return true;
+  }
+
+  // 2. If Firebase Auth is configured and available, try Firebase Auth
   if (auth && isFirebaseConfigured) {
     try {
       const email = cleanUser.includes('@') ? cleanUser : `${cleanUser}@foxthief.admin`;
@@ -66,23 +83,7 @@ export async function adminLogin(user: string, pass: string): Promise<boolean> {
       sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(sessionData));
       return true;
     } catch {
-      // Fall through to secure hashed local credential check
-    }
-  }
-
-  // 2. Cryptographic hash check for initial admin credentials
-  if (cleanUser === ADMIN_USERNAME) {
-    const inputHash = await computeHash(`${cleanUser}_${cleanPass}_salt_ft2026`);
-    if (inputHash === ADMIN_PASS_HASH) {
-      const sessionToken = await computeHash(`session_${cleanUser}_${Date.now()}`);
-      const sessionData: AdminSession = {
-        username: cleanUser,
-        authenticated: true,
-        loginTime: Date.now(),
-        token: sessionToken,
-      };
-      sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(sessionData));
-      return true;
+      // ignore
     }
   }
 
